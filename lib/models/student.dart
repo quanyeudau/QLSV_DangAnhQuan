@@ -8,8 +8,9 @@ class Student {
   String? className;
   String? dob; // ISO date string, e.g. 2000-12-31
   String? address;
+  String? status; // e.g. 'đang học','tạm nghỉ','tốt nghiệp','thôi học'
 
-  Student({required this.id, required this.name, required this.score, this.avatarUrl, this.email, this.phone, this.className, this.dob, this.address});
+  Student({required this.id, required this.name, required this.score, this.avatarUrl, this.email, this.phone, this.className, this.dob, this.address, this.status});
 
   String getRank() {
     if (score >= 8) return 'Giỏi';
@@ -29,6 +30,7 @@ class Student {
       'class_name': className,
       'dob': dob,
       'address': address,
+      'status': status,
     };
   }
 
@@ -43,6 +45,7 @@ class Student {
       className: map['class_name'] as String?,
       dob: map['dob'] as String?,
       address: map['address'] as String?,
+      status: map['status'] as String?,
     );
   }
 

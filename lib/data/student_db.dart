@@ -4,6 +4,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/student.dart';
+import '../models/course.dart';
+import '../models/grade.dart';
 
 class StudentDb {
 	StudentDb._();
@@ -54,7 +56,33 @@ class StudentDb {
 				phone TEXT,
 				class_name TEXT,
 				dob TEXT,
-				address TEXT
+				address TEXT,
+				status TEXT
+			)
+		''');
+
+		// Courses table
+		await db.execute('''
+			CREATE TABLE courses(
+				id TEXT PRIMARY KEY,
+				name TEXT NOT NULL,
+				credits INTEGER NOT NULL,
+				instructor TEXT,
+				schedule_code TEXT
+			)
+		''');
+
+		// Grades / enrollments table
+		await db.execute('''
+			CREATE TABLE grades(
+				student_id TEXT NOT NULL,
+				course_id TEXT NOT NULL,
+				midterm REAL,
+				final REAL,
+				total REAL,
+				PRIMARY KEY(student_id, course_id),
+				FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+				FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE
 			)
 		''');
 	}
@@ -72,6 +100,75 @@ class StudentDb {
 			await db.execute('ALTER TABLE students ADD COLUMN dob TEXT');
 			await db.execute('ALTER TABLE students ADD COLUMN address TEXT');
 		}
+		if (oldVersion < 4) {
+			// Add status column and create courses/grades tables for version 4
+			await db.execute('ALTER TABLE students ADD COLUMN status TEXT');
+			await db.execute('''
+				CREATE TABLE IF NOT EXISTS courses(
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					credits INTEGER NOT NULL,
+					instructor TEXT,
+					schedule_code TEXT
+				)
+			''');
+			await db.execute('''
+				CREATE TABLE IF NOT EXISTS grades(
+					student_id TEXT NOT NULL,
+					course_id TEXT NOT NULL,
+					midterm REAL,
+					final REAL,
+					total REAL,
+					PRIMARY KEY(student_id, course_id)
+				)
+			''');
+		}
+	}
+
+	/* ----------------- Course CRUD ----------------- */
+
+	Future<void> upsertCourse(Course c) async {
+		final db = await database;
+		await db.insert('courses', c.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+	}
+
+	Future<List<Course>> getAllCourses() async {
+		final db = await database;
+		final rows = await db.query('courses', orderBy: 'name ASC');
+		return rows.map((r) => Course.fromMap(r)).toList();
+	}
+
+	Future<void> deleteCourse(String id) async {
+		final db = await database;
+		await db.delete('courses', where: 'id = ?', whereArgs: [id]);
+	}
+
+	/* ----------------- Grades CRUD ----------------- */
+
+	Future<void> upsertGrade(Grade g) async {
+		final db = await database;
+		await db.insert('grades', g.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+	}
+
+	Future<List<Grade>> getGradesForStudent(String studentId) async {
+		final db = await database;
+		final rows = await db.query('grades', where: 'student_id = ?', whereArgs: [studentId]);
+		return rows.map((r) => Grade.fromMap(r)).toList();
+	}
+
+	Future<void> deleteGrade(String studentId, String courseId) async {
+		final db = await database;
+		await db.delete('grades', where: 'student_id = ? AND course_id = ?', whereArgs: [studentId, courseId]);
+	}
+
+	/// Compute weighted average for a student's grade in a course.
+	/// weights: {'mid':0.4, 'final':0.6} (should sum to 1.0)
+	Future<double?> computeWeightedAverage(String studentId, String courseId, Map<String, double> weights) async {
+		final db = await database;
+		final rows = await db.query('grades', where: 'student_id = ? AND course_id = ?', whereArgs: [studentId, courseId]);
+		if (rows.isEmpty) return null;
+		final g = Grade.fromMap(rows.first);
+		return g.computeWeighted(weights);
 	}
 
 	Future<List<Student>> getAllStudents() async {
