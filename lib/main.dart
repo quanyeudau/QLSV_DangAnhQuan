@@ -1,7 +1,19 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/student_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Firebase only on non-web platforms. (We target Android sync.)
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      // Log but continue: Firestore sync will be attempted only when Firebase initialized.
+      debugPrint('Firebase initialize failed: $e');
+    }
+  }
   runApp(MyApp());
 }
 

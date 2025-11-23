@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:sqflite/sqflite.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:path/path.dart';
 import '../models/student.dart';
 import '../models/course.dart';
@@ -42,7 +44,7 @@ class StudentDb {
 				}
 			}
 
-			return await openDatabase(path, version: 3, onCreate: _onCreate, onUpgrade: _onUpgrade);
+			return await openDatabase(path, version: 4, onCreate: _onCreate, onUpgrade: _onUpgrade);
 	}
 
 	Future<void> _onCreate(Database db, int version) async {
@@ -125,11 +127,82 @@ class StudentDb {
 		}
 	}
 
+	// Firestore helpers - only used on Android (per request)
+	FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+
+	Future<void> _maybeSyncStudentToFirestore(Student student) async {
+		if (!Platform.isAndroid) return;
+		try {
+			// ensure Firebase is initialized
+			if (Firebase.apps.isEmpty) return;
+			await _firestore.collection('students').doc(student.id).set(student.toMap());
+		} catch (e) {
+			debugPrint('Firestore sync student failed: $e');
+		}
+	}
+
+	Future<void> _maybeDeleteStudentFromFirestore(String id) async {
+		if (!Platform.isAndroid) return;
+		try {
+			if (Firebase.apps.isEmpty) return;
+			await _firestore.collection('students').doc(id).delete();
+		} catch (e) {
+			debugPrint('Firestore delete student failed: $e');
+		}
+	}
+
+	Future<void> _maybeSyncCourseToFirestore(Course c) async {
+		if (!Platform.isAndroid) return;
+		try {
+			if (Firebase.apps.isEmpty) return;
+			await _firestore.collection('courses').doc(c.id).set(c.toMap());
+		} catch (e) {
+			debugPrint('Firestore sync course failed: $e');
+		}
+	}
+
+	Future<void> _maybeDeleteCourseFromFirestore(String id) async {
+		if (!Platform.isAndroid) return;
+		try {
+			if (Firebase.apps.isEmpty) return;
+			await _firestore.collection('courses').doc(id).delete();
+		} catch (e) {
+			debugPrint('Firestore delete course failed: $e');
+		}
+	}
+
+	Future<void> _maybeSyncGradeToFirestore(Grade g) async {
+		if (!Platform.isAndroid) return;
+		try {
+			if (Firebase.apps.isEmpty) return;
+			await _firestore
+				.collection('students')
+				.doc(g.studentId)
+				.collection('grades')
+				.doc(g.courseId)
+				.set(g.toMap());
+		} catch (e) {
+			debugPrint('Firestore sync grade failed: $e');
+		}
+	}
+
+	Future<void> _maybeDeleteGradeFromFirestore(String studentId, String courseId) async {
+		if (!Platform.isAndroid) return;
+		try {
+			if (Firebase.apps.isEmpty) return;
+			await _firestore.collection('students').doc(studentId).collection('grades').doc(courseId).delete();
+		} catch (e) {
+			debugPrint('Firestore delete grade failed: $e');
+		}
+	}
+
 	/* ----------------- Course CRUD ----------------- */
 
 	Future<void> upsertCourse(Course c) async {
 		final db = await database;
 		await db.insert('courses', c.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+		// sync to Firestore on Android
+		await _maybeSyncCourseToFirestore(c);
 	}
 
 	Future<List<Course>> getAllCourses() async {
@@ -141,6 +214,7 @@ class StudentDb {
 	Future<void> deleteCourse(String id) async {
 		final db = await database;
 		await db.delete('courses', where: 'id = ?', whereArgs: [id]);
+		await _maybeDeleteCourseFromFirestore(id);
 	}
 
 	/* ----------------- Grades CRUD ----------------- */
@@ -148,6 +222,7 @@ class StudentDb {
 	Future<void> upsertGrade(Grade g) async {
 		final db = await database;
 		await db.insert('grades', g.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+		await _maybeSyncGradeToFirestore(g);
 	}
 
 	Future<List<Grade>> getGradesForStudent(String studentId) async {
@@ -159,6 +234,7 @@ class StudentDb {
 	Future<void> deleteGrade(String studentId, String courseId) async {
 		final db = await database;
 		await db.delete('grades', where: 'student_id = ? AND course_id = ?', whereArgs: [studentId, courseId]);
+		await _maybeDeleteGradeFromFirestore(studentId, courseId);
 	}
 
 	/// Compute weighted average for a student's grade in a course.
@@ -184,11 +260,13 @@ class StudentDb {
 			student.toMap(),
 			conflictAlgorithm: ConflictAlgorithm.replace,
 		);
+		await _maybeSyncStudentToFirestore(student);
 	}
 
 	Future<void> deleteStudent(String id) async {
 		final db = await database;
 		await db.delete('students', where: 'id = ?', whereArgs: [id]);
+		await _maybeDeleteStudentFromFirestore(id);
 	}
 
 	Future<void> updateStudentScore(String id, double newScore) async {
