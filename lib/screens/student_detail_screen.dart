@@ -14,6 +14,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 	late final TextEditingController idController;
 	late final TextEditingController nameController;
 	late final TextEditingController scoreController;
+	late final TextEditingController _avatarController;
 	bool _saving = false;
 	bool _isNew = true;
 
@@ -24,6 +25,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		idController = TextEditingController(text: widget.student?.id ?? '');
 		nameController = TextEditingController(text: widget.student?.name ?? '');
 		scoreController = TextEditingController(text: widget.student?.score.toString() ?? '');
+		_avatarController = TextEditingController(text: widget.student?.avatarUrl ?? '');
 	}
 
 	@override
@@ -31,6 +33,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		idController.dispose();
 		nameController.dispose();
 		scoreController.dispose();
+		_avatarController.dispose();
 		super.dispose();
 	}
 
@@ -38,6 +41,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		final id = idController.text.trim();
 		final name = nameController.text.trim();
 		final score = double.tryParse(scoreController.text) ?? 0;
+		final avatar = _avatarController.text.trim();
 		if (id.isEmpty || name.isEmpty) {
 			if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mã và tên không được trống')));
 			return;
@@ -48,7 +52,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		}
 		setState(() => _saving = true);
 		try {
-			final student = Student(id: id, name: name, score: score);
+			final student = Student(id: id, name: name, score: score, avatarUrl: avatar.isEmpty ? null : avatar);
 			await StudentDb.instance.upsertStudent(student);
 			if (mounted) Navigator.of(context).pop(true);
 		} catch (e) {
@@ -121,6 +125,21 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 											keyboardType: const TextInputType.numberWithOptions(decimal: true),
 											decoration: const InputDecoration(labelText: 'Điểm (0-10)'),
 										),
+										const SizedBox(height: 12),
+										TextField(
+											controller: _avatarController,
+											decoration: const InputDecoration(labelText: 'Avatar URL (tuỳ chọn)'),
+										),
+										if (_avatarController.text.isNotEmpty) ...[
+											const SizedBox(height: 8),
+											Align(
+												alignment: Alignment.centerLeft,
+												child: CircleAvatar(
+													radius: 30,
+													backgroundImage: NetworkImage(_avatarController.text),
+												),
+											),
+										],
 										if (rank != null) ...[
 											const SizedBox(height: 12),
 											Align(

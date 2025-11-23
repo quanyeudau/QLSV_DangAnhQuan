@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 import '../models/student.dart';
 import '../data/student_db.dart';
 import 'student_detail_screen.dart';
@@ -18,6 +19,8 @@ class _StudentScreenState extends State<StudentScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String? _rankFilter;
+  bool _sortScoreAsc = true; // toggle for score sorting
+  bool _showStats = true; // can toggle collapse later if desired
 
   @override
   void initState() {
@@ -54,7 +57,7 @@ class _StudentScreenState extends State<StudentScreen> {
   }
 
   List<Student> get _filtered {
-    return _students.where((s) {
+    final base = _students.where((s) {
       final matchesSearch = _searchQuery.isEmpty ||
           s.name.toLowerCase().contains(_searchQuery) ||
           s.id.toLowerCase().contains(_searchQuery);
@@ -62,6 +65,8 @@ class _StudentScreenState extends State<StudentScreen> {
       final matchesRank = _rankFilter == null || _rankFilter == rank;
       return matchesSearch && matchesRank;
     }).toList();
+    base.sort((a, b) => _sortScoreAsc ? a.score.compareTo(b.score) : b.score.compareTo(a.score));
+    return base;
   }
 
   Future<void> _openAddStudent() async {
@@ -101,11 +106,24 @@ class _StudentScreenState extends State<StudentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+  // final scheme = Theme.of(context).colorScheme; // no longer needed after avatar color logic
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quản lý sinh viên'),
         actions: [
+          IconButton(
+            tooltip: _sortScoreAsc ? 'Sắp xếp điểm giảm dần' : 'Sắp xếp điểm tăng dần',
+            icon: Icon(_sortScoreAsc ? Icons.sort : Icons.sort_by_alpha),
+            onPressed: () => setState(() => _sortScoreAsc = !_sortScoreAsc),
+          ),
+          IconButton(
+            tooltip: 'Đổi giao diện sáng/tối',
+            icon: Icon(Theme.of(context).brightness == Brightness.dark ? Icons.dark_mode : Icons.light_mode),
+            onPressed: () {
+              final appState = MyApp.of(context);
+              appState?.toggleTheme();
+            },
+          ),
           IconButton(onPressed: _showDbPath, icon: const Icon(Icons.info_outline)),
         ],
       ),
@@ -155,6 +173,7 @@ class _StudentScreenState extends State<StudentScreen> {
             ),
           ),
           const SizedBox(height: 8),
+          if (_showStats) _buildStatsCard(context),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -172,9 +191,12 @@ class _StudentScreenState extends State<StudentScreen> {
                                   : s.id;
                               return ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: scheme.primaryContainer,
-                                  foregroundColor: scheme.onPrimaryContainer,
-                                  child: Text(initials),
+                                  backgroundColor: Color(s.avatarColorValue),
+                                  foregroundColor: Colors.white,
+                                  backgroundImage: (s.avatarUrl != null && s.avatarUrl!.isNotEmpty)
+                                      ? NetworkImage(s.avatarUrl!)
+                                      : null,
+                                  child: (s.avatarUrl != null && s.avatarUrl!.isNotEmpty) ? null : Text(initials),
                                 ),
                                 title: Text(s.name),
                                 subtitle: Text('${s.id} • Điểm: ${s.score} • ${s.getRank()}'),
@@ -188,4 +210,67 @@ class _StudentScreenState extends State<StudentScreen> {
       ),
     );
   }
-}
+
+  Widget _buildStatsCard(BuildContext context) {
+    final total = _students.length;
+    double avg = 0;
+    if (total > 0) {
+      avg = _students.map((e) => e.score).reduce((a, b) => a + b) / total;
+    }
+    final counts = {
+      'Giỏi': _students.where((e) => e.getRank() == 'Giỏi').length,
+      'Khá': _students.where((e) => e.getRank() == 'Khá').length,
+      'Trung bình': _students.where((e) => e.getRank() == 'Trung bình').length,
+      'Yếu': _students.where((e) => e.getRank() == 'Yếu').length,
+    };
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Thống kê', style: Theme.of(context).textTheme.titleMedium),
+                  IconButton(
+                    tooltip: 'Ẩn/Hiện',
+                    icon: Icon(_showStats ? Icons.expand_less : Icons.expand_more),
+                    onPressed: () => setState(() => _showStats = !_showStats),
+                  )
+                ],
+              ),
+              if (_showStats) ...[
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _statChip('Tổng: $total', scheme.primaryContainer, scheme.onPrimaryContainer),
+                    _statChip('TB: ${avg.toStringAsFixed(2)}', scheme.secondaryContainer, scheme.onSecondaryContainer),
+                    _statChip('Giỏi: ${counts['Giỏi']}', scheme.tertiaryContainer, scheme.onTertiaryContainer),
+                    _statChip('Khá: ${counts['Khá']}', scheme.surfaceContainerHighest, scheme.onSurfaceVariant),
+                    _statChip('Trung bình: ${counts['Trung bình']}', scheme.surfaceVariant, scheme.onSurface),
+                    _statChip('Yếu: ${counts['Yếu']}', scheme.errorContainer, scheme.onErrorContainer),
+                  ],
+                ),
+              ]
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statChip(String label, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(label, style: TextStyle(color: fg)),
+    );
+  }
