@@ -173,7 +173,8 @@ class _StudentScreenState extends State<StudentScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          if (_showStats) _buildStatsCard(context),
+          // Always build stats card so toggle button remains accessible even when hidden
+          _buildStatsCard(context),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -274,3 +275,4 @@ class _StudentScreenState extends State<StudentScreen> {
       child: Text(label, style: TextStyle(color: fg)),
     );
   }
+}
