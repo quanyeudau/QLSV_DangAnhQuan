@@ -111,8 +111,8 @@ class _StudentScreenState extends State<StudentScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openAddStudent,
-        child: const Icon(Icons.person_add),
         tooltip: 'Thêm sinh viên',
+        child: const Icon(Icons.person_add),
       ),
       body: Column(
         children: [
