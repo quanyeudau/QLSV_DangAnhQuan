@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1099264424780",
+    "project_id": "appnotepersonal",
+    "storage_bucket": "appnotepersonal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1099264424780:android:1b885e10655bccc00d6de9",
+        "android_client_info": {
+          "package_name": "com.example.quanly_sv"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvaHleb9GifugTZsjJBlSKhrQhyqOJACc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
