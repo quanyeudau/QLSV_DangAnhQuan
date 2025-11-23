@@ -252,7 +252,7 @@ class _StudentScreenState extends State<StudentScreen> {
                     _statChip('TB: ${avg.toStringAsFixed(2)}', scheme.secondaryContainer, scheme.onSecondaryContainer),
                     _statChip('Giỏi: ${counts['Giỏi']}', scheme.tertiaryContainer, scheme.onTertiaryContainer),
                     _statChip('Khá: ${counts['Khá']}', scheme.surfaceContainerHighest, scheme.onSurfaceVariant),
-                    _statChip('Trung bình: ${counts['Trung bình']}', scheme.surfaceVariant, scheme.onSurface),
+                    _statChip('Trung bình: ${counts['Trung bình']}', scheme.surfaceContainerHigh, scheme.onSurface),
                     _statChip('Yếu: ${counts['Yếu']}', scheme.errorContainer, scheme.onErrorContainer),
                   ],
                 ),
