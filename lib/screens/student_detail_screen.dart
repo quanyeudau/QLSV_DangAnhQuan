@@ -84,7 +84,10 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 				address: address.isEmpty ? null : address,
 			);
 			await StudentDb.instance.upsertStudent(student);
-			if (mounted) Navigator.of(context).pop(true);
+			if (mounted) {
+				ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lưu thành công')));
+				Navigator.of(context).pop(true);
+			}
 		} catch (e) {
 			if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi lưu: $e')));
 		} finally {

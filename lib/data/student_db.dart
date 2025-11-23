@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:sqflite/sqflite.dart';
@@ -14,6 +15,11 @@ class StudentDb {
 	static final StudentDb instance = StudentDb._();
 	Database? _db;
 
+	// Broadcast stream to notify listeners about DB changes (upsert/delete)
+	final StreamController<void> _changesController = StreamController<void>.broadcast();
+
+	Stream<void> get changes => _changesController.stream;
+
 	Future<Database> get database async {
 		if (_db != null) return _db!;
 		_db = await _initDb();
@@ -23,6 +29,7 @@ class StudentDb {
 	Future<Database> _initDb() async {
 			final dbPath = await getDatabasesPath();
 			final path = join(dbPath, 'students.db');
+			debugPrint('StudentDb: initializing DB at $path');
 			// If DB file doesn't exist, try to copy a pre-populated DB from assets
 			// (useful to ship initial data so other devices get the same content).
 			// This only runs on non-web platforms.
@@ -151,6 +158,14 @@ class StudentDb {
 		}
 	}
 
+	void _notifyChange() {
+		try {
+			if (!_changesController.isClosed) _changesController.add(null);
+		} catch (e) {
+			debugPrint('StudentDb: notifyChange error: $e');
+		}
+	}
+
 	Future<void> _maybeSyncCourseToFirestore(Course c) async {
 		if (!Platform.isAndroid) return;
 		try {
@@ -201,8 +216,9 @@ class StudentDb {
 	Future<void> upsertCourse(Course c) async {
 		final db = await database;
 		await db.insert('courses', c.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
-		// sync to Firestore on Android
-		await _maybeSyncCourseToFirestore(c);
+	// schedule Firestore sync on Android (fire-and-forget) so network IO doesn't block UI
+	Future.microtask(() => _maybeSyncCourseToFirestore(c));
+		_notifyChange();
 	}
 
 	Future<List<Course>> getAllCourses() async {
@@ -214,7 +230,9 @@ class StudentDb {
 	Future<void> deleteCourse(String id) async {
 		final db = await database;
 		await db.delete('courses', where: 'id = ?', whereArgs: [id]);
-		await _maybeDeleteCourseFromFirestore(id);
+	// schedule delete on Firestore without awaiting
+	Future.microtask(() => _maybeDeleteCourseFromFirestore(id));
+		_notifyChange();
 	}
 
 	/* ----------------- Grades CRUD ----------------- */
@@ -222,7 +240,9 @@ class StudentDb {
 	Future<void> upsertGrade(Grade g) async {
 		final db = await database;
 		await db.insert('grades', g.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
-		await _maybeSyncGradeToFirestore(g);
+	// schedule Firestore sync for grade (do not await to avoid blocking)
+	Future.microtask(() => _maybeSyncGradeToFirestore(g));
+		_notifyChange();
 	}
 
 	Future<List<Grade>> getGradesForStudent(String studentId) async {
@@ -234,7 +254,9 @@ class StudentDb {
 	Future<void> deleteGrade(String studentId, String courseId) async {
 		final db = await database;
 		await db.delete('grades', where: 'student_id = ? AND course_id = ?', whereArgs: [studentId, courseId]);
-		await _maybeDeleteGradeFromFirestore(studentId, courseId);
+	// schedule Firestore delete for grade
+	Future.microtask(() => _maybeDeleteGradeFromFirestore(studentId, courseId));
+		_notifyChange();
 	}
 
 	/// Compute weighted average for a student's grade in a course.
@@ -250,23 +272,42 @@ class StudentDb {
 	Future<List<Student>> getAllStudents() async {
 		final db = await database;
 		final maps = await db.query('students', orderBy: 'name ASC');
+		debugPrint('StudentDb: read ${maps.length} students');
 		return maps.map((m) => Student.fromMap(m)).toList();
 	}
 
 	Future<void> upsertStudent(Student student) async {
 		final db = await database;
-		await db.insert(
-			'students',
-			student.toMap(),
-			conflictAlgorithm: ConflictAlgorithm.replace,
-		);
-		await _maybeSyncStudentToFirestore(student);
+		try {
+			debugPrint('StudentDb: upserting student ${student.id}');
+			await db.insert(
+				'students',
+				student.toMap(),
+				conflictAlgorithm: ConflictAlgorithm.replace,
+			);
+			debugPrint('StudentDb: upsert completed for ${student.id}');
+			// verify by reading back the inserted row
+			final rows = await db.query('students', where: 'id = ?', whereArgs: [student.id]);
+			if (rows.isEmpty) {
+				debugPrint('StudentDb: verification FAILED for ${student.id} — no row found after insert');
+			} else {
+				debugPrint('StudentDb: verification OK for ${student.id}: ${rows.first}');
+			}
+		} catch (e, st) {
+			debugPrint('StudentDb: upsertStudent error for ${student.id}: $e\n$st');
+			rethrow;
+		}
+		// schedule Firestore sync for student (do not await)
+		Future.microtask(() => _maybeSyncStudentToFirestore(student));
+		_notifyChange();
 	}
 
 	Future<void> deleteStudent(String id) async {
 		final db = await database;
 		await db.delete('students', where: 'id = ?', whereArgs: [id]);
-		await _maybeDeleteStudentFromFirestore(id);
+	// schedule Firestore delete for student
+	Future.microtask(() => _maybeDeleteStudentFromFirestore(id));
+		_notifyChange();
 	}
 
 	Future<void> updateStudentScore(String id, double newScore) async {
@@ -277,6 +318,7 @@ class StudentDb {
 			where: 'id = ?',
 			whereArgs: [id],
 		);
+		_notifyChange();
 	}
 
 	/// Trả về đường dẫn file của database (useful for debugging)

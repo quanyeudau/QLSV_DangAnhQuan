@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/student.dart';
@@ -21,11 +22,16 @@ class _StudentScreenState extends State<StudentScreen> {
   String? _rankFilter;
   bool _sortScoreAsc = true; // toggle for score sorting
   bool _showStats = true; // can toggle collapse later if desired
+  StreamSubscription<void>? _dbSub;
 
   @override
   void initState() {
     super.initState();
     _loadStudents();
+    // subscribe to DB change events to auto-refresh
+    _dbSub = StudentDb.instance.changes.listen((_) {
+      if (mounted) _loadStudents();
+    });
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.trim().toLowerCase();
@@ -101,6 +107,7 @@ class _StudentScreenState extends State<StudentScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _dbSub?.cancel();
     super.dispose();
   }
 
