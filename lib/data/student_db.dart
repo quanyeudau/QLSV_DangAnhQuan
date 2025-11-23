@@ -40,7 +40,7 @@ class StudentDb {
 				}
 			}
 
-			return await openDatabase(path, version: 2, onCreate: _onCreate, onUpgrade: _onUpgrade);
+			return await openDatabase(path, version: 3, onCreate: _onCreate, onUpgrade: _onUpgrade);
 	}
 
 	Future<void> _onCreate(Database db, int version) async {
@@ -49,15 +49,28 @@ class StudentDb {
 				id TEXT PRIMARY KEY,
 				name TEXT NOT NULL,
 				score REAL NOT NULL,
-				avatar_url TEXT
+				avatar_url TEXT,
+				email TEXT,
+				phone TEXT,
+				class_name TEXT,
+				dob TEXT,
+				address TEXT
 			)
 		''');
 	}
 
 	Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
 		if (oldVersion < 2) {
-			// Add avatar_url column for new avatar feature
+			// Add avatar_url column for previous upgrade
 			await db.execute('ALTER TABLE students ADD COLUMN avatar_url TEXT');
+		}
+		if (oldVersion < 3) {
+			// Add new student info columns
+			await db.execute('ALTER TABLE students ADD COLUMN email TEXT');
+			await db.execute('ALTER TABLE students ADD COLUMN phone TEXT');
+			await db.execute('ALTER TABLE students ADD COLUMN class_name TEXT');
+			await db.execute('ALTER TABLE students ADD COLUMN dob TEXT');
+			await db.execute('ALTER TABLE students ADD COLUMN address TEXT');
 		}
 	}
 

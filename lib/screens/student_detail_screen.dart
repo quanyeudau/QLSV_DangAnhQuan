@@ -15,6 +15,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 	late final TextEditingController nameController;
 	late final TextEditingController scoreController;
 	late final TextEditingController _avatarController;
+	late final TextEditingController _emailController;
+	late final TextEditingController _phoneController;
+	late final TextEditingController _classController;
+	late final TextEditingController _dobController;
+	late final TextEditingController _addressController;
 	bool _saving = false;
 	bool _isNew = true;
 
@@ -26,6 +31,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		nameController = TextEditingController(text: widget.student?.name ?? '');
 		scoreController = TextEditingController(text: widget.student?.score.toString() ?? '');
 		_avatarController = TextEditingController(text: widget.student?.avatarUrl ?? '');
+		_emailController = TextEditingController(text: widget.student?.email ?? '');
+		_phoneController = TextEditingController(text: widget.student?.phone ?? '');
+		_classController = TextEditingController(text: widget.student?.className ?? '');
+		_dobController = TextEditingController(text: widget.student?.dob ?? '');
+		_addressController = TextEditingController(text: widget.student?.address ?? '');
 	}
 
 	@override
@@ -34,6 +44,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		nameController.dispose();
 		scoreController.dispose();
 		_avatarController.dispose();
+		_emailController.dispose();
+		_phoneController.dispose();
+		_classController.dispose();
+		_dobController.dispose();
+		_addressController.dispose();
 		super.dispose();
 	}
 
@@ -42,6 +57,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		final name = nameController.text.trim();
 		final score = double.tryParse(scoreController.text) ?? 0;
 		final avatar = _avatarController.text.trim();
+		final email = _emailController.text.trim();
+		final phone = _phoneController.text.trim();
+		final className = _classController.text.trim();
+		final dob = _dobController.text.trim();
+		final address = _addressController.text.trim();
 		if (id.isEmpty || name.isEmpty) {
 			if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mã và tên không được trống')));
 			return;
@@ -52,7 +72,17 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 		}
 		setState(() => _saving = true);
 		try {
-			final student = Student(id: id, name: name, score: score, avatarUrl: avatar.isEmpty ? null : avatar);
+			final student = Student(
+				id: id,
+				name: name,
+				score: score,
+				avatarUrl: avatar.isEmpty ? null : avatar,
+				email: email.isEmpty ? null : email,
+				phone: phone.isEmpty ? null : phone,
+				className: className.isEmpty ? null : className,
+				dob: dob.isEmpty ? null : dob,
+				address: address.isEmpty ? null : address,
+			);
 			await StudentDb.instance.upsertStudent(student);
 			if (mounted) Navigator.of(context).pop(true);
 		} catch (e) {
@@ -129,6 +159,34 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 										TextField(
 											controller: _avatarController,
 											decoration: const InputDecoration(labelText: 'Avatar URL (tuỳ chọn)'),
+										),
+										const SizedBox(height: 12),
+										TextField(
+											controller: _emailController,
+											keyboardType: TextInputType.emailAddress,
+											decoration: const InputDecoration(labelText: 'Email (tuỳ chọn)'),
+										),
+										const SizedBox(height: 12),
+										TextField(
+											controller: _phoneController,
+											keyboardType: TextInputType.phone,
+											decoration: const InputDecoration(labelText: 'Số điện thoại (tuỳ chọn)'),
+										),
+										const SizedBox(height: 12),
+										TextField(
+											controller: _classController,
+											decoration: const InputDecoration(labelText: 'Lớp / Khoa (tuỳ chọn)'),
+										),
+										const SizedBox(height: 12),
+										TextField(
+											controller: _dobController,
+											decoration: const InputDecoration(labelText: 'Ngày sinh (YYYY-MM-DD)'),
+										),
+										const SizedBox(height: 12),
+										TextField(
+											controller: _addressController,
+											maxLines: 2,
+											decoration: const InputDecoration(labelText: 'Địa chỉ (tuỳ chọn)'),
 										),
 										if (_avatarController.text.isNotEmpty) ...[
 											const SizedBox(height: 8),

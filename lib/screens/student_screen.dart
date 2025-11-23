@@ -200,7 +200,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   child: (s.avatarUrl != null && s.avatarUrl!.isNotEmpty) ? null : Text(initials),
                                 ),
                                 title: Text(s.name),
-                                subtitle: Text('${s.id} • Điểm: ${s.score} • ${s.getRank()}'),
+                                subtitle: Text('${s.id} • ${s.className ?? ''} • Điểm: ${s.score} • ${s.getRank()}\n${s.email ?? ''}'),
                                 trailing: const Icon(Icons.chevron_right),
                                 onTap: () => _openDetail(s),
                               );
